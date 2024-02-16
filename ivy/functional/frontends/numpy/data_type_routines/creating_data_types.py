@@ -5,30 +5,6 @@ import ivy
 import ivy.functional.frontends.numpy as np_frontend
 
 
-def to_ivy_dtype(dtype_in):
-    if dtype_in is None:
-        return
-    if isinstance(dtype_in, ivy.Dtype):
-        return dtype_in
-    if isinstance(dtype_in, str):
-        if dtype_in.strip("><=") in np_frontend.numpy_str_to_type_table:
-            return ivy.Dtype(np_frontend.numpy_str_to_type_table[dtype_in.strip("><=")])
-        return ivy.Dtype(dtype_in)
-    if ivy.is_native_dtype(dtype_in):
-        return ivy.as_ivy_dtype(dtype_in)
-    if dtype_in in (int, float, bool):
-        return {int: ivy.int64, float: ivy.float64, bool: ivy.bool}[dtype_in]
-    if isinstance(dtype_in, np_frontend.dtype):
-        return dtype_in.ivy_dtype
-    if isinstance(dtype_in, type):
-        if issubclass(dtype_in, np_frontend.generic):
-            return np_frontend.numpy_scalar_to_dtype[dtype_in]
-        if hasattr(dtype_in, "dtype"):
-            return dtype_in.dtype.ivy_dtype
-    else:
-        return ivy.as_ivy_dtype(dtype_in)
-
-
 class dtype:
     def __init__(self, dtype_in, align=False, copy=False):
         self._ivy_dtype = (
@@ -43,11 +19,11 @@ class dtype:
     def __ge__(self, other):
         try:
             other = dtype(other)
-        except TypeError:
+        except TypeError as e:
             raise ivy.utils.exceptions.IvyException(
                 "Attempted to compare a dtype with something which"
                 "couldn't be interpreted as a dtype"
-            )
+            ) from e
 
         return self == np_frontend.promote_numpy_dtypes(
             self._ivy_dtype, other._ivy_dtype
@@ -56,22 +32,22 @@ class dtype:
     def __gt__(self, other):
         try:
             other = dtype(other)
-        except TypeError:
+        except TypeError as e:
             raise ivy.utils.exceptions.IvyException(
                 "Attempted to compare a dtype with something which"
                 "couldn't be interpreted as a dtype"
-            )
+            ) from e
 
         return self >= other and self != other
 
     def __lt__(self, other):
         try:
             other = dtype(other)
-        except TypeError:
+        except TypeError as e:
             raise ivy.utils.exceptions.IvyException(
                 "Attempted to compare a dtype with something which"
                 "couldn't be interpreted as a dtype"
-            )
+            ) from e
 
         return self != np_frontend.promote_numpy_dtypes(
             self._ivy_dtype, other._ivy_dtype
@@ -80,11 +56,11 @@ class dtype:
     def __le__(self, other):
         try:
             other = dtype(other)
-        except TypeError:
+        except TypeError as e:
             raise ivy.utils.exceptions.IvyException(
                 "Attempted to compare a dtype with something which"
                 "couldn't be interpreted as a dtype"
-            )
+            ) from e
 
         return self < other or self == other
 
@@ -164,3 +140,27 @@ class dtype:
     @property
     def name(self):
         return self._ivy_dtype.__repr__()
+
+
+def to_ivy_dtype(dtype_in):
+    if dtype_in is None:
+        return
+    if isinstance(dtype_in, ivy.Dtype):
+        return dtype_in
+    if isinstance(dtype_in, str):
+        if dtype_in.strip("><=") in np_frontend.numpy_str_to_type_table:
+            return ivy.Dtype(np_frontend.numpy_str_to_type_table[dtype_in.strip("><=")])
+        return ivy.Dtype(dtype_in)
+    if ivy.is_native_dtype(dtype_in):
+        return ivy.as_ivy_dtype(dtype_in)
+    if dtype_in in (int, float, bool):
+        return {int: ivy.int64, float: ivy.float64, bool: ivy.bool}[dtype_in]
+    if isinstance(dtype_in, np_frontend.dtype):
+        return dtype_in.ivy_dtype
+    if isinstance(dtype_in, type):
+        if issubclass(dtype_in, np_frontend.generic):
+            return np_frontend.numpy_scalar_to_dtype[dtype_in]
+        if hasattr(dtype_in, "dtype"):
+            return dtype_in.dtype.ivy_dtype
+    else:
+        return ivy.as_ivy_dtype(dtype_in)

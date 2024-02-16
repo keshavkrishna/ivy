@@ -3,6 +3,7 @@ from hypothesis.internal.floats import float_of
 
 # local
 from . import general_helpers as gh, dtype_helpers
+import ivy_tests.test_ivy.helpers.globals as test_globals
 
 
 floats_info = {
@@ -30,9 +31,8 @@ def floats(
     safety_factor_scale="linear",
     mixed_fn_compos=True,
 ):
-    """
-    Draws an arbitrarily sized list of floats with a safety factor applied to avoid
-    values being generated at the edge of a dtype limit.
+    """Draws an arbitrarily sized list of floats with a safety factor applied
+    to avoid values being generated at the edge of a dtype limit.
 
     Parameters
     ----------
@@ -98,6 +98,7 @@ def floats(
     # ToDo add support for not applying safety factor
     min_value, max_value, abs_smallest_val = gh.apply_safety_factor(
         dtype,
+        backend=test_globals.CURRENT_BACKEND,
         min_value=min_value,
         max_value=max_value,
         abs_smallest_val=abs_smallest_val,
@@ -154,8 +155,7 @@ def ints(
     safety_factor_scale=None,
     mixed_fn_compos=True,
 ):
-    """
-    Draws an integer with a safety factor if specified.
+    """Draws an integer with a safety factor if specified.
 
     Parameters
     ----------
@@ -199,6 +199,7 @@ def ints(
     if safety_factor_scale is not None:
         min_value, max_value, _ = gh.apply_safety_factor(
             dtype[0],
+            backend=test_globals.CURRENT_BACKEND,
             min_value=min_value,
             max_value=max_value,
             large_abs_safety_factor=safety_factor,
@@ -218,8 +219,7 @@ def number(
     safety_factor_scale="linear",
     mixed_fn_compos=True,
 ):
-    """
-    Draws integers or floats with a safety factor applied to values.
+    """Draws integers or floats with a safety factor applied to values.
 
     Parameters
     ----------

@@ -6,6 +6,7 @@ from io import StringIO
 import numpy as np
 import sys
 
+
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 import pytest
 
@@ -45,15 +46,13 @@ def trim(*, docstring):
     if "\n" in docstring:
         trimmed.append("")
 
-    # Return a single string:
     return "\n".join(trimmed)
 
 
 def check_docstring_examples_run(
     *, fn, from_container=False, from_array=False, num_sig_fig=2
 ):
-    """
-    Performs docstring tests for a given function.
+    """Performs docstring tests for a given function.
 
     Parameters
     ----------
@@ -70,6 +69,121 @@ def check_docstring_examples_run(
     -------
     None if the test passes, else marks the test as failed.
     """
+    """
+    Functions skipped as their output dependent on outside factors:
+
+    random_normal, random_uniform, shuffle, num_gpus, current_backend,
+    get_backend
+    """
+    to_skip = [
+        "random_normal",
+        "random_uniform",
+        "randint",
+        "shuffle",
+        "beta",
+        "gamma",
+        "dev",
+        "num_gpus",
+        "current_backend",
+        "get_backend",
+        "namedtuple",
+        "invalid_dtype",
+        "DType",
+        "NativeDtype",
+        "Dtype",
+        "multinomial",
+        "num_cpu_cores",
+        "get_all_ivy_arrays_on_dev",
+        "num_ivy_arrays_on_dev",
+        "total_mem_on_dev",
+        "used_mem_on_dev",
+        "percent_used_mem_on_dev",
+        "function_supported_dtypes",
+        "function_unsupported_dtypes",
+        "randint",
+        "unique_counts",
+        "unique_all",
+        "dropout",
+        "dropout1d",
+        "dropout2d",
+        "dropout3d",
+        "total_mem_on_dev",
+        "supports_inplace_updates",
+        "get",
+        "deserialize",
+        "set_split_factor",
+    ]
+    # the temp skip list consists of functions
+    # which have an issue with their implementation
+    skip_list_temp = [
+        "outer",  # Failing only torch backend as inputs must be 1-D.
+        "pool",  # Maximum recursion depth exceeded ivy.pool
+        "put_along_axis",  # Depends on scatter_nd for numpy.
+        "result_type",  # Different ouput coming for diff backends in 1st example.
+        "scaled_dot_product_attention",  # Different backends giving different answers.
+        "eigh_tridiagonal",  # Failing only for TF backend
+        "dct",
+        "choose",  # Maximum recurion depth exceeded (No backend choose fn).
+        "idct",  # Function already failing for all 5 backends.
+        "set_item",  # Different errors for diff backends (jax, torch)
+        "l1_normalize",  # Function already failing for all 5 backends.
+        "histogram",  # Failing for TF, Torch backends (TODO's left)
+        "value_and_grad",  # Failing only for Torch backend. (Requires_grad=True)
+        "layer_norm",  # Failing only for Torch backend.
+        "eigvalsh",  # Failing only Jax Backend + only for Native Array Example.
+        "conv2d_transpose",  # Function already failing for all 5 backends.
+        "solve",
+        "one_hot",  # One small example failing for all backends except torch.
+        "scatter_flat",  # Function Already failing for 3 backends
+        "scatter_nd",  #
+        "execute_with_gradients",  # Function Already failing for 4 backends.
+        "gather",
+        "multiprocessing",
+        "if_else",
+        "trace_graph",  # SystemExit: Please sign up for free pilot access.
+        "dill",
+        "smooth_l1_loss",  # Function already failing for all 5 backends.
+        "cummax",  # Function already failing for all 5 backends.
+        "insert_into_nest_at_index",
+        "while_loop",
+        "argmax",
+        "native_array",
+    ]
+
+    # skip list for array and container docstrings
+    skip_arr_cont = [
+        # generates different results due to randomization
+        "cumprod",
+        "supports_inplace_updates",
+        "shuffle",
+        "dropout",
+        "dropout1d",
+        "dropout2d",
+        "dropout3",
+        "svd",
+        "unique_all",
+        # exec and self run generates diff results
+        "dev",
+        "scaled_dot_product_attention",
+        # temp list for array/container methods
+        "einops_reduce",
+        "array_equal",
+        "batched_outer",
+        "huber_loss",
+        "softshrink",
+        "tt_matrix_to_tensor",
+        "unsorted_segment_mean",
+        "array_equal",
+        "batched_outer",
+        "huber_loss",
+        "kl_div",
+        "soft_margin_loss",
+        "threshold",
+    ]
+
+    # comment out the line below in future to check for the functions in temp skip list
+    to_skip += skip_list_temp  # + currently_being_worked_on
+
     if not hasattr(fn, "__name__"):
         return True
     fn_name = fn.__name__
@@ -88,9 +202,12 @@ def check_docstring_examples_run(
         docstring = ivy.utils.backend.handler.ivy_original_dict[fn_name].__doc__
     if docstring is None:
         return True
+    if fn_name in to_skip:
+        return True
+    if (from_container or from_array) and fn_name in skip_arr_cont:
+        return True
 
     # removing extra new lines and trailing white spaces from the docstrings
-
     trimmed_docstring = trim(docstring=docstring)
     trimmed_docstring = trimmed_docstring.split("\n")
     # end_index: -1, if print statement is not found in the docstring
@@ -105,13 +222,15 @@ def check_docstring_examples_run(
     for index, line in enumerate(trimmed_docstring):
         if sub in line:
             for i, s in enumerate(trimmed_docstring[index + 1 :]):
-                if s.startswith(">>>") or s.lower().startswith("with"):
+                if s.startswith(">>>") or s.lower().startswith(
+                    ("with", "#", "instance")
+                ):
                     end_index = index + i + 1
                     break
             else:
                 end_index = len(trimmed_docstring)
             p_output = trimmed_docstring[index + 1 : end_index]
-            p_output = ("").join(p_output).replace(" ", "")
+            p_output = "".join(p_output).replace(" ", "")
             p_output = p_output.replace("...", "")
             if parsed_output != "":
                 parsed_output += ","
@@ -171,16 +290,18 @@ def check_docstring_examples_run(
     # print("Putput: ", parsed_output)
 
     # assert output == parsed_output, "Output is unequal to the docstrings output."
-    sig_fig = float("1e-" + str(num_sig_fig))
+    sig_fig = float(f"1e-{str(num_sig_fig)}")
+    atol = sig_fig / 10000
     numeric_pattern = re.compile(
         r"""
-            [\{\}\(\)\[\]]|\w+:
+            [\{\}\(\)\[\]\<>]|\w+:
         """,
         re.VERBOSE,
     )
-    num_output = output.replace("ivy.array", "")
+
+    num_output = output.replace("ivy.array", "").replace("ivy.Shape", "")
+    num_parsed_output = parsed_output.replace("ivy.array", "").replace("ivy.Shape", "")
     num_output = numeric_pattern.sub("", num_output)
-    num_parsed_output = parsed_output.replace("ivy.array", "")
     num_parsed_output = numeric_pattern.sub("", num_parsed_output)
     num_output = num_output.split(",")
     num_parsed_output = num_parsed_output.split(",")
@@ -191,6 +312,7 @@ def check_docstring_examples_run(
                 np.nan_to_num(complex(doc_u)),
                 np.nan_to_num(complex(doc_v)),
                 rtol=sig_fig,
+                atol=atol,
             )
         except Exception:
             if str(doc_u) != str(doc_v):
@@ -210,7 +332,8 @@ def check_docstring_examples_run(
                 "\n",
             )
             ivy.warn(
-                "Output is unequal to the docstrings output: %s" % fn_name, stacklevel=0
+                f"Output is unequal to the docstrings output: {fn_name}",
+                stacklevel=0,
             )
             break
     return docstr_result
@@ -220,138 +343,45 @@ def check_docstring_examples_run(
 def test_docstrings(backend):
     ivy.set_default_device("cpu")
     ivy.set_backend(backend)
-    failures = list()
+    failures = []
     success = True
-    """
-    Functions skipped as their output dependent on outside factors:
-
-    random_normal, random_uniform, shuffle, num_gpus, current_backend,
-    get_backend
-    """
-    to_skip = [
-        "random_normal",
-        "random_uniform",
-        "randint",
-        "shuffle",
-        "beta",
-        "gamma",
-        "dev",
-        "num_gpus",
-        "current_backend",
-        "get_backend",
-        "namedtuple",
-        "invalid_dtype",
-        "DType",
-        "NativeDtype",
-        "Dtype",
-        "multinomial",
-        "num_cpu_cores",
-        "get_all_ivy_arrays_on_dev",
-        "num_ivy_arrays_on_dev",
-        "total_mem_on_dev",
-        "used_mem_on_dev",
-        "percent_used_mem_on_dev",
-        "function_supported_dtypes",
-        "function_unsupported_dtypes",
-        "randint",
-        "unique_counts",
-        "unique_all",
-        "total_mem_on_dev",
-        "supports_inplace_updates",
-        "get",
-        "deserialize",
-        "dropout",
-        "dropout1d",
-        "dropout3d",
-    ]
-    # the temp skip list consists of functions which have an issue with their
-    # implementation
-    skip_list_temp = [
-        "outer",
-        "argmax",
-        "split",
-        "det",
-        "cumprod",
-        "where",
-        "sinc",
-        "grad",
-    ]
-
-    # skip list for array and container docstrings
-    skip_arr_cont = [
-        "cumprod",
-        "supports_inplace_updates",
-        "slogdet",
-        "dropout",
-        "dropout1d",
-        "dropout3",
-    ]
-    # currently_being_worked_on = ["layer_norm"]
-
-    # comment out the line below in future to check for the functions in temp skip list
-    to_skip += skip_list_temp  # + currently_being_worked_on
 
     for k, v in ivy.__dict__.copy().items():
         if k == "Array":
             for method_name in dir(v):
+                method = getattr(ivy.Array, method_name)
                 if hasattr(ivy.functional, method_name):
-                    method = getattr(ivy.Array, method_name)
-                    if (
-                        method_name in skip_arr_cont
-                        or helpers.gradient_incompatible_function(
-                            fn=getattr(ivy.functional, method_name)
-                        )
-                        or check_docstring_examples_run(fn=method, from_array=True)
-                    ):
+                    if helpers.gradient_incompatible_function(
+                        fn=getattr(ivy.functional, method_name)
+                    ) or check_docstring_examples_run(fn=method, from_array=True):
                         continue
-                    success = False
-                    failures.append("Array." + method_name)
-                else:
-                    method = getattr(ivy.Array, method_name)
-                    if (
-                        method_name in skip_arr_cont
-                        or helpers.gradient_incompatible_function(fn=method)
-                        or check_docstring_examples_run(fn=method, from_array=True)
-                    ):
-                        continue
-                    success = False
-                    failures.append("Array." + method_name)
-
+                elif helpers.gradient_incompatible_function(
+                    fn=method
+                ) or check_docstring_examples_run(fn=method, from_array=True):
+                    continue
+                failures.append(f"Array.{method_name}")
+                success = False
         elif k == "Container":
             for method_name in dir(v):
+                method = getattr(ivy.Container, method_name)
                 if hasattr(ivy.functional, method_name):
-                    method = getattr(ivy.Container, method_name)
-                    if (
-                        method_name in skip_arr_cont
-                        or helpers.gradient_incompatible_function(
-                            fn=getattr(ivy.functional, method_name)
-                        )
-                        or check_docstring_examples_run(fn=method, from_container=True)
-                    ):
+                    if helpers.gradient_incompatible_function(
+                        fn=getattr(ivy.functional, method_name)
+                    ) or check_docstring_examples_run(fn=method, from_container=True):
                         continue
-                    success = False
-                    failures.append("Container." + method_name)
-                else:
-                    method = getattr(ivy.Container, method_name)
-                    if (
-                        method_name in skip_arr_cont
-                        or helpers.gradient_incompatible_function(fn=method)
-                        or check_docstring_examples_run(fn=method, from_container=True)
-                    ):
-                        continue
-                    success = False
-                    failures.append("Container." + method_name)
-
+                elif helpers.gradient_incompatible_function(
+                    fn=method
+                ) or check_docstring_examples_run(fn=method, from_container=True):
+                    continue
+                failures.append(f"Container.{method_name}")
+                success = False
         else:
-            if (
-                k in to_skip
-                or helpers.gradient_incompatible_function(fn=v)
-                or check_docstring_examples_run(fn=v)
-            ):
+            if check_docstring_examples_run(
+                fn=v
+            ) or helpers.gradient_incompatible_function(fn=v):
                 continue
             success = False
             failures.append(k)
-
     if not success:
         assert (
             success

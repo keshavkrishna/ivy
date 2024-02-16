@@ -48,7 +48,6 @@ numpy_promotion_table = {
     (_bool, _float64): _float64,
     (_bool, _complex64): _complex64,
     (_bool, _complex128): _complex128,
-    (_bool, _bool): _bool,
     (_int8, _bool): _int8,
     (_int8, _int8): _int8,
     (_int8, _int16): _int16,
@@ -426,8 +425,10 @@ def promote_numpy_dtypes(
     type1, type2 = ivy.as_ivy_dtype(type1), ivy.as_ivy_dtype(type2)
     try:
         return numpy_promotion_table[(type1, type2)]
-    except KeyError:
-        raise ivy.utils.exceptions.IvyException("these dtypes are not type promotable")
+    except KeyError as e:
+        raise ivy.utils.exceptions.IvyException(
+            "these dtypes are not type promotable"
+        ) from e
 
 
 @handle_exceptions
@@ -436,9 +437,8 @@ def promote_types_of_numpy_inputs(
     x2: Union[ivy.Array, Number, Iterable[Number]],
     /,
 ) -> Tuple[ivy.Array, ivy.Array]:
-    """
-    Promote the dtype of the given ivy array inputs to a common dtype based on numpy
-    type promotion rules.
+    """Promote the dtype of the given ivy array inputs to a common dtype based
+    on numpy type promotion rules.
 
     While passing float or integer values or any other non-array input
     to this function, it should be noted that the return will be an
@@ -455,11 +455,11 @@ def promote_types_of_numpy_inputs(
     type1 = ivy.default_dtype(item=x1).strip("u123456789")
     type2 = ivy.default_dtype(item=x2).strip("u123456789")
     # Ignore type of 0-dim arrays or scalars to mimic numpy
-    if not x1.shape == () and x2.shape == () and type1 == type2:
+    if x1.shape != () and x2.shape == () and type1 == type2:
         x2 = ivy.asarray(
             x2, dtype=x1.dtype, device=ivy.default_device(item=x1, as_native=False)
         )
-    elif x1.shape == () and not x2.shape == () and type1 == type2:
+    elif x1.shape == () and x2.shape != () and type1 == type2:
         x1 = ivy.asarray(
             x1, dtype=x2.dtype, device=ivy.default_device(item=x2, as_native=False)
         )
@@ -474,8 +474,7 @@ from . import creation_routines
 from .creation_routines import *
 from . import data_type_routines
 from .data_type_routines import *
-from . import indexing_routines
-from .indexing_routines import *
+
 from . import logic
 from .logic import *
 from . import manipulation_routines
@@ -490,12 +489,13 @@ from . import matrix
 from .matrix import *
 from . import random
 from .random import *
+from . import indexing_routines
+from .indexing_routines import *
 from . import broadcast
 from .broadcast import *
 
 from . import ma
 from . import fft
-from . import random
 from .ufunc import ufunc
 
 from . import linalg
@@ -551,7 +551,6 @@ from ivy.functional.frontends.numpy.mathematical_functions.arithmetic_operations
     _reciprocal,
     _subtract,
     _divmod,
-    _remainder,
 )
 
 from ivy.functional.frontends.numpy.mathematical_functions.trigonometric_functions import (  # noqa
@@ -564,6 +563,7 @@ from ivy.functional.frontends.numpy.mathematical_functions.trigonometric_functio
     _sin,
     _tan,
     _degrees,
+    _arctan2,
 )
 
 from ivy.functional.frontends.numpy.mathematical_functions.handling_complex_numbers import (  # noqa
@@ -625,6 +625,7 @@ from ivy.functional.frontends.numpy.logic.logical_operations import (
 from ivy.functional.frontends.numpy.linalg.matrix_and_vector_products import (
     _matmul,
     dot,
+    einsum,
 )
 
 from ivy.functional.frontends.numpy.mathematical_functions.extrema_finding import (
@@ -636,6 +637,7 @@ from ivy.functional.frontends.numpy.mathematical_functions.extrema_finding impor
 
 from ivy.functional.frontends.numpy.mathematical_functions.floating_point_routines import (  # noqa
     _nextafter,
+    _signbit,
     _spacing,
 )
 
@@ -670,6 +672,7 @@ true_divide = ufunc("_divide")
 arccos = ufunc("_arccos")
 arcsin = ufunc("_arcsin")
 arctan = ufunc("_arctan")
+arctan2 = ufunc("_arctan2")
 cos = ufunc("_cos")
 deg2rad = ufunc("_deg2rad")
 rad2deg = ufunc("_rad2deg")
@@ -718,6 +721,7 @@ frexp = ufunc("_frexp")
 conj = ufunc("_conj")
 rint = ufunc("_rint")
 nextafter = ufunc("_nextafter")
+signbit = ufunc("_signbit")
 conjugate = ufunc("_conj")
 lcm = ufunc("_lcm")
 gcd = ufunc("_gcd")
@@ -728,4 +732,9 @@ remainder = ufunc("_remainder")
 # setting to specific version #
 # --------------------------- #
 
-set_frontend_to_specific_version(sys.modules[__name__])
+if ivy.is_local():
+    module = ivy.utils._importlib.import_cache[__name__]
+else:
+    module = sys.modules[__name__]
+
+__version__ = set_frontend_to_specific_version(module)

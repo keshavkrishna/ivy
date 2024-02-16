@@ -53,10 +53,9 @@ half = float16
 
 @handle_exceptions
 def check_tensorflow_casting(x1, x2):
-    """
-    Check whether the two arguments provided in the function have the same dtype, unless
-    one of them is an array_like or scalar, where it gets casted to the other input's
-    dtype.
+    """Check whether the two arguments provided in the function have the same
+    dtype, unless one of them is an array_like or scalar, where it gets casted
+    to the other input's dtype.
 
     Parameters
     ----------
@@ -75,6 +74,9 @@ def check_tensorflow_casting(x1, x2):
     if hasattr(x1, "dtype") and not hasattr(x2, "dtype"):
         x1 = ivy.asarray(x1)
         x2 = ivy.asarray(x2, dtype=x1.dtype)
+    elif hasattr(x2, "dtype") and not hasattr(x1, "dtype"):
+        x2 = ivy.asarray(x2)
+        x1 = ivy.asarray(x1, dtype=x2.dtype)
     else:
         x1 = ivy.asarray(x1)
         if not hasattr(x2, "dtype"):
@@ -84,11 +86,12 @@ def check_tensorflow_casting(x1, x2):
 
 
 from . import dtypes
-from .dtypes import DType, as_dtype, cast
+from .dtypes import as_dtype, cast
 from . import ragged
 from .ragged import *
 from . import tensor
 from .tensor import EagerTensor, Tensor
+from .tensorarray import TensorArray
 from . import variable
 from .variable import Variable, IndexedSlices
 from . import keras
@@ -115,4 +118,9 @@ _frontend_array = constant
 # setting to specific version #
 # --------------------------- #
 
-set_frontend_to_specific_version(sys.modules[__name__])
+if ivy.is_local():
+    module = ivy.utils._importlib.import_cache[__name__]
+else:
+    module = sys.modules[__name__]
+
+__version__ = set_frontend_to_specific_version(module)
